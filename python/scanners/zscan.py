@@ -49,6 +49,11 @@ class ZScanScanner(Scanner):
         for i in range(count):
             z_i, pd_i = np.frombuffer(raw[4*i:4*(i+1)], dtype='>i2,>u2')[0]
             zs[i], pds[i] = z_i, pd_i
+        
+        # Disregard the first measurement
+        if count > 0:
+            zs = zs[1:]
+            pds = pds[1:]
 
         # Convert to physical units
         Z_SCALE = 0.5 # microns per step
@@ -103,6 +108,11 @@ class AutofocusScanner(Scanner):
             pd_i = int.from_bytes(raw[4*i+2:4*i+4], 'big')
             zs[i], pds[i] = z_i, pd_i
         
+        # Disregard the first measurement
+        if count > 0:
+            zs = zs[1:]
+            pds = pds[1:]
+            
         Z_SCALE = 0.5 # microns per step
         zs_um = zs * Z_SCALE
 

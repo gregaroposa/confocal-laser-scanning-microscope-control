@@ -116,8 +116,8 @@ class MicroscopeGUI:
 
         tk.Label(tab, text='Smer').grid(row=2, column=0, padx=5, pady=5, sticky='e')
         self.z_dir_var = tk.IntVar(value=1)
-        tk.Radiobutton(tab, text='GOR', variable=self.z_dir_var, value=1).grid(row=2, column=1, padx=5, pady=5, sticky='w')
-        tk.Radiobutton(tab, text='DOL', variable=self.z_dir_var, value=0).grid(row=2, column=2, padx=5, pady=5, sticky='w')
+        tk.Radiobutton(tab, text='DOL', variable=self.z_dir_var, value=1).grid(row=2, column=1, padx=5, pady=5, sticky='w')
+        tk.Radiobutton(tab, text='GOR', variable=self.z_dir_var, value=0).grid(row=2, column=2, padx=5, pady=5, sticky='w')
 
         ttk.Button(tab, text='Pošlji Z ukaz', command=self._send_manual_z).grid(row=3, column=0, columnspan=3, pady=10)
 
@@ -138,7 +138,7 @@ class MicroscopeGUI:
         self.comms.write_packet(pkt)
         fb = self.comms.read_feedback()
         if fb:
-            messagebox.showinfo('Gibanje zaključeno', f'Premik za {steps} korakov {"GOR" if direction else "DOL"} uspešen.')
+            messagebox.showinfo('Gibanje zaključeno', f'Premik za {steps} korakov {"DOL" if direction else "GOR"} uspešen.')
         else:
             messagebox.showerror("Napaka", "Ni prejete povratne informacije od Arduino.")
         
@@ -180,8 +180,8 @@ class MicroscopeGUI:
     def _run_zscan(self) -> None:
         '''Callback: execute z_scan (single or multi-run) and plot results.'''
         try:
-            neg = int(self.zs_neg_var.get())
-            pos = int(self.zs_pos_var.get())
+            neg = -abs(int(self.zs_neg_var.get()))
+            pos = abs(int(self.zs_pos_var.get()))
             inc = int(self.zs_inc_var.get())
             freq = int(self.zs_freq_var.get())
         except ValueError:
@@ -190,10 +190,10 @@ class MicroscopeGUI:
         runs = 1
         if self.zs_multi_var.get():
             try:
-                runs = int(self.root.nametowidget('multi_runs').get())
+                runs = int(self.zs_multi_var.get())
                 if runs < 1:
                     raise ValueError("Število ponovitev mora biti vsaj 1.")
-            except Exception:
+            except ValueError:
                 messagebox.showerror("Napaka", "Vnesite veljavno število ponovitev.")
                 return
             
@@ -209,8 +209,7 @@ class MicroscopeGUI:
         # Plot the results if enabled:
         plt.figure(figsize=(10,6))
         for idx, (zs, pds) in enumerate(traces, start=1):
-            label = f'Run {idx}' if runs>1 else None
-            plt.plot(zs, pds, marker='.' if runs>1 else None, linestyle='-' if runs>1 else '-')
+            plt.plot(zs, pds, marker='.', linestyle='-')
             if runs > 1:
                 best = zs[pds.argmax()]
                 plt.plot(best, pds.max(), 'ro')
@@ -257,8 +256,8 @@ class MicroscopeGUI:
     def _run_autofocus(self) -> None:
         '''Callback: execute autofocus scan and plot results.'''
         try:
-            neg = int(self.afn.get())
-            pos = int(self.afp.get())
+            neg = -abs(int(self.afn.get()))
+            pos = abs(int(self.afp.get()))
             inc = int(self.af_inc_var.get())
             freq = int(self.af_freq_var.get())
         except ValueError:
@@ -320,7 +319,7 @@ class MicroscopeGUI:
         # Save option and scan
         self.save_galvo = tk.IntVar(value=0)
         ttk.Checkbutton(tab, text='Shrani sken', variable=self.save_galvo).grid(row=6, column=0, padx=5, pady=5, sticky='w')
-        self.galvo_fname = tk.StringVar('galvo_scan')
+        self.galvo_fname = tk.StringVar(value='galvo_scan')
         tk.Entry(tab, textvariable=self.galvo_fname, width=20).grid(row=6, column=1, padx=5, pady=5, sticky='w')
         ttk.Button(tab, text='Zaženi Galvo skeniranje', command=self._run_galvo_scan).grid(row=7, column=0, columnspan=3, pady=10)
 
@@ -337,11 +336,17 @@ class MicroscopeGUI:
         scanner = ShowAreaScanner(self.comms, xn, xp, yn, yp, int(self.galvo_inc.get()), loops)
         scanner.run()
 
+        # Center the galvo to (2047, 2047) after showing area
+        scanner = GalvoPointScanner(self.comms, 2047, 2047)
+        scanner.run()
+
     def _run_galvo_scan(self) -> None:
         """Perform a galvo raster scan and display or save the result."""
         try:
-            xn = -abs(int(self.galvo_x_neg.get())); xp =  abs(int(self.galvo_x_pos.get()))
-            yn = -abs(int(self.galvo_y_neg.get())); yp =  abs(int(self.galvo_y_pos.get()))
+            xn = -abs(int(self.galvo_x_neg.get()))
+            xp =  abs(int(self.galvo_x_pos.get()))
+            yn = -abs(int(self.galvo_y_neg.get()))
+            yp =  abs(int(self.galvo_y_pos.get()))
             inc = int(self.galvo_inc.get())
         except ValueError:
             return messagebox.showerror('Invalid', 'Enter valid integers')
@@ -373,42 +378,42 @@ class MicroscopeGUI:
         self.notebook.add(tab, text='3D Skeniranje')
 
         tk.Label(tab, text='X negativni offset (raw):').grid(row=0, column=0, padx=5, pady=5, sticky='e')
-        self.xn = tk.StringVar('250'); tk.Entry(tab, textvariable=self.xn, width=8).grid(row=0,column=1)
+        self.xn = tk.StringVar(value='250'); tk.Entry(tab, textvariable=self.xn, width=8).grid(row=0,column=1)
         self._mk_conv_label(tab,0,2,self.xn,self.XY_SCALE)
 
         tk.Label(tab, text='X pozitivni offset (raw):').grid(row=1,column=0,sticky='e',padx=5,pady=5)
-        self.xp = tk.StringVar('250'); tk.Entry(tab, textvariable=self.xp, width=8).grid(row=1,column=1)
+        self.xp = tk.StringVar(value='250'); tk.Entry(tab, textvariable=self.xp, width=8).grid(row=1,column=1)
         self._mk_conv_label(tab,1,2,self.xp,self.XY_SCALE)
 
         tk.Label(tab, text='Y negativni offset (raw):').grid(row=2,column=0,sticky='e',padx=5,pady=5)
-        self.yn = tk.StringVar('250'); tk.Entry(tab, textvariable=self.yn, width=8).grid(row=2,column=1)
+        self.yn = tk.StringVar(value='250'); tk.Entry(tab, textvariable=self.yn, width=8).grid(row=2,column=1)
         self._mk_conv_label(tab,2,2,self.yn,self.XY_SCALE)
 
         tk.Label(tab, text='Y pozitivni offset (raw):').grid(row=3,column=0,sticky='e',padx=5,pady=5)
-        self.yp = tk.StringVar('250'); tk.Entry(tab, textvariable=self.yp, width=8).grid(row=3,column=1)
+        self.yp = tk.StringVar(value='250'); tk.Entry(tab, textvariable=self.yp, width=8).grid(row=3,column=1)
         self._mk_conv_label(tab,3,2,self.yp,self.XY_SCALE)
 
         tk.Label(tab, text='XY korak (raw):').grid(row=4,column=0,sticky='e',padx=5,pady=5)
-        self.xy_inc = tk.StringVar('10'); tk.Entry(tab, textvariable=self.xy_inc, width=8).grid(row=4,column=1)
+        self.xy_inc = tk.StringVar(value='10'); tk.Entry(tab, textvariable=self.xy_inc, width=8).grid(row=4,column=1)
         self._mk_conv_label(tab,4,2,self.xy_inc,self.XY_SCALE)
 
         tk.Label(tab, text='Z negativni offset (raw):').grid(row=5,column=0,sticky='e',padx=5,pady=5)
-        self.zn = tk.StringVar('1000'); tk.Entry(tab, textvariable=self.zn, width=8).grid(row=5,column=1)
+        self.zn = tk.StringVar(value='1000'); tk.Entry(tab, textvariable=self.zn, width=8).grid(row=5,column=1)
         self._mk_conv_label(tab,5,2,self.zn,self.Z_SCALE)
 
         tk.Label(tab, text='Z pozitivni offset (raw):').grid(row=6,column=0,sticky='e',padx=5,pady=5)
-        self.zp = tk.StringVar('1000'); tk.Entry(tab, textvariable=self.zp, width=8).grid(row=6,column=1)
+        self.zp = tk.StringVar(value='1000'); tk.Entry(tab, textvariable=self.zp, width=8).grid(row=6,column=1)
         self._mk_conv_label(tab,6,2,self.zp,self.Z_SCALE)
 
         tk.Label(tab, text='Z korak (raw):').grid(row=7,column=0,sticky='e',padx=5,pady=5)
-        self.z_inc = tk.StringVar('10'); tk.Entry(tab, textvariable=self.z_inc, width=8).grid(row=7,column=1)
+        self.z_inc = tk.StringVar(value='10'); tk.Entry(tab, textvariable=self.z_inc, width=8).grid(row=7,column=1)
         self._mk_conv_label(tab,7,2,self.z_inc,self.Z_SCALE)
 
         tk.Label(tab, text='Frekvenca (Hz):').grid(row=8,column=0,sticky='e',padx=5,pady=5)
-        self.freq = tk.StringVar(str(24*60)); tk.Entry(tab, textvariable=self.freq, width=8).grid(row=8,column=1)
+        self.freq = tk.StringVar(value=str(24*60)); tk.Entry(tab, textvariable=self.freq, width=8).grid(row=8,column=1)
 
         tk.Label(tab, text='Ime datoteke:').grid(row=9,column=0,sticky='e',padx=5,pady=5)
-        self.outfile = tk.StringVar('3d_scan.npz')
+        self.outfile = tk.StringVar(value='3d_scan.npz')
         tk.Entry(tab, textvariable=self.outfile, width=20).grid(row=9,column=1,sticky='w')
         ttk.Button(tab, text='Zaženi 3D skeniranje', command=self._run_3d_scan).grid(row=10, column=0, columnspan=2, pady=10)
 
