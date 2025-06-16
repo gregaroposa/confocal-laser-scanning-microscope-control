@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
+import time
 import numpy as np
 import ttkbootstrap as ttkb
 from ttkbootstrap import ttk
@@ -29,6 +30,15 @@ class MicroscopeGUI:
         self.root = ttkb.Window(themename='minty')
         self.root.title('Krmilna plošča konfokalne mikroskopa')
 
+        # Log window setup
+        self.log_win = tk.Toplevel(self.root)
+        self.log_win.title('Log')
+        self.log_text = tk.scrolledtext.ScrolledText(
+            self.log_win, state='disabled', width=60, height=20
+        )
+        self.log_text.pack(expand=True, fill='both')
+        self.log(f'Povezava na {port}')
+
         # Conversion scales
         self.XY_SCALE = 1.2269938650306749  # µm per galvo raw step
         self.Z_SCALE = 0.5                  # µm per Z raw step
@@ -47,6 +57,15 @@ class MicroscopeGUI:
         self._build_3d_scan_tab()
 
         self.root.protocol('WM_DELETE_WINDOW', self.on_closing)
+        self.log('GUI inicializiran')
+
+    def log(self, msg: str) -> None:
+        """Append a timestamped message to the log window."""
+        ts = time.strftime('%H:%M:%S')
+        self.log_text.configure(state='normal')
+        self.log_text.insert('end', f'[{ts}] {msg}\n')
+        self.log_text.see('end')
+        self.log_text.configure(state='disabled')
 
     def _make_conv_label(self, parent, row, col, var: tk.StringVar, factor: float, unit: str='\u00b5m') -> tk.Label:
         '''
@@ -98,6 +117,7 @@ class MicroscopeGUI:
             messagebox.showerror("Napaka", "Ni prejete meritve fotodiode.")
         else:
             messagebox.showinfo('Premaknjen galvo', f'X: {x}, Y: {y}')
+        self.log(f'Galvo premik na X={x}, Y={y}')
         
     def _build_manual_z_tab(self) -> None:
         '''Tab for manual Z-stepper control.'''
@@ -141,6 +161,7 @@ class MicroscopeGUI:
             messagebox.showinfo('Gibanje zaključeno', f'Premik za {steps} korakov {"DOL" if direction else "GOR"} uspešen.')
         else:
             messagebox.showerror("Napaka", "Ni prejete povratne informacije od Arduino.")
+        self.log(f'Z-stepper premik {steps} korakov pri {freq}Hz, smer {direction}')
         
     def _build_zscan_tab(self) -> None:
         '''Tab for Z-scan with PD measurements.'''
@@ -188,6 +209,7 @@ class MicroscopeGUI:
 
     def _run_zscan(self) -> None:
         '''Callback: execute z_scan (single or multi-run) and plot results.'''
+        self.log('Z-sken zagon')
         try:
             neg = -abs(int(self.zs_neg_var.get()))
             pos = abs(int(self.zs_pos_var.get()))
@@ -215,7 +237,7 @@ class MicroscopeGUI:
                 messagebox.showerror("Napaka", "Ni prejete meritve med Z-sken.")
                 return
             traces.append((zs, pds))
-        
+
         if self.zs_plot_var.get():
             plt.figure(figsize=(10,6))
             lines = []
@@ -235,6 +257,7 @@ class MicroscopeGUI:
                 plt.legend([f'Run {i}' for i in range(1, runs+1)], bbox_to_anchor=(1,1), loc='upper left')
             plt.tight_layout()
             plt.show()
+        self.log('Z-sken zaključen')
 
     def _build_autofocus_tab(self) -> None:
         '''Tab for autofocus Z-scam'''
@@ -266,6 +289,7 @@ class MicroscopeGUI:
 
     def _run_autofocus(self) -> None:
         '''Callback: execute autofocus scan and plot results.'''
+        self.log('Autofokus zagon')
         try:
             neg = -abs(int(self.afn.get()))
             pos = abs(int(self.afp.get()))
@@ -311,6 +335,7 @@ class MicroscopeGUI:
             plt.legend()
             plt.tight_layout()
             plt.show()
+        self.log(f'Autofokus končan, najboljši fokus {best:.2f} µm')
 
     def _build_galvo_scan_tab(self) -> None:
         '''Tab for full 2D galvo raster scan.'''
@@ -357,6 +382,7 @@ class MicroscopeGUI:
 
     def _show_area(self) -> None:
         '''Callback: outline a rectangular area with galvo loops.'''
+        self.log('Prikazujem območje galva')
         try:
             xn = -abs(int(self.galvo_x_neg.get()))
             xp =  abs(int(self.galvo_x_pos.get()))
@@ -371,9 +397,11 @@ class MicroscopeGUI:
         # Center the galvo to (2047, 2047) after showing area
         scanner = GalvoPointScanner(self.comms, 2047, 2047)
         scanner.run()
+        self.log('Prikaz območja končan')
 
     def _run_galvo_scan(self) -> None:
         """Perform a galvo raster scan and display or save the result."""
+        self.log('Začenjam galvo skeniranje')
         try:
             xn = -abs(int(self.galvo_x_neg.get()))
             xp =  abs(int(self.galvo_x_pos.get()))
@@ -403,6 +431,9 @@ class MicroscopeGUI:
         if self.save_galvo.get():
             fname = filedialog.asksaveasfilename(defaultextension='.npz')
             np.savez(fname, pd_volume=vol, x_um=x_um, y_um=y_um)
+            self.log(f'Galvo sken shranjen v {fname}')
+        else:
+            self.log('Galvo sken končan')
 
     def _build_3d_scan_tab(self) -> None:
         """Builds the 3D layered scan tab UI."""
@@ -451,6 +482,7 @@ class MicroscopeGUI:
 
     def _run_3d_scan(self) -> None:
         '''Callback: execute 3D layered scan and save results.'''
+        self.log('Začenjam 3D skeniranje')
         try:
             xn = -abs(int(self.xn.get()))
             xp = abs(int(self.xp.get()))
@@ -481,11 +513,14 @@ class MicroscopeGUI:
         try:
             np.savez(fname, pd_volume=vol, x_um=x_um, y_um=y_um, z_um=z_um)
             messagebox.showinfo('Skeniranje zaključeno', f'3D skeniranje shranjeno v {fname}')
+            self.log(f'3D sken shranjen v {fname}')
         except Exception as e:
             messagebox.showerror('Napaka', f'Ne morem shraniti datoteke: {e}')
+            self.log(f'Napaka shranjevanja: {e}')
 
     def on_closing(self) -> None:
         '''Handle window close event: clean up serial connection.'''
+        self.log('Zapiram aplikacijo')
         self.comms.close()
         self.root.destroy()
 
