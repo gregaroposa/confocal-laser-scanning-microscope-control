@@ -171,9 +171,18 @@ class MicroscopeGUI:
         ttk.Checkbutton(tab, text='Prikaži meritve', variable=self.zs_plot_var).grid(row=4, column=0, padx=5, pady=5, sticky='w')
 
         self.zs_multi_var = tk.IntVar(value=0)
-        ttk.Checkbutton(tab, text='Več zaporednih meritev', variable=self.zs_multi_var).grid(row=4, column=1, padx=5, pady=5, sticky='w')
-        tk.Entry(tab, textvariable=tk.StringVar(value='2'), width=4, name='multi_runs').grid(row=4, column=2, padx=5, pady=5, sticky='w')
-        tk.Label(tab, text='Št. ponovitev').grid(row=4, column=3, padx=5, pady=5, sticky='e')
+        ttk.Checkbutton(
+            tab,
+            text='Več zaporednih meritev',
+            variable=self.zs_multi_var
+        ).grid(row=4, column=1, padx=5, pady=5, sticky='w')
+        self.zs_runs_var = tk.StringVar(value='2')
+        tk.Entry(tab, textvariable=self.zs_runs_var, width=4).grid(
+            row=4, column=2, padx=5, pady=5, sticky='w'
+        )
+        tk.Label(tab, text='Št. ponovitev').grid(
+            row=4, column=3, padx=5, pady=5, sticky='e'
+        )
 
         ttk.Button(tab, text='Zaženi Z-sken', command=self._run_zscan).grid(row=5, column=0, columnspan=3, pady=10)
 
@@ -190,11 +199,12 @@ class MicroscopeGUI:
         runs = 1
         if self.zs_multi_var.get():
             try:
-                runs = int(self.zs_multi_var.get())
+                runs = int(self.zs_runs_var.get())
                 if runs < 1:
                     raise ValueError("Število ponovitev mora biti vsaj 1.")
             except ValueError:
-                messagebox.showerror("Napaka", "Vnesite veljavno število ponovitev.")
+                messagebox.showerror("Napaka", 
+                                     "Vnesite veljavno število ponovitev.")
                 return
             
         traces = []
@@ -206,15 +216,16 @@ class MicroscopeGUI:
                 return
             traces.append((zs, pds))
         
-        # Plot the results if enabled:
-        plt.figure(figsize=(10,6))
-        for idx, (zs, pds) in enumerate(traces, start=1):
-            plt.plot(zs, pds, marker='.', linestyle='-')
-            if runs > 1:
-                best = zs[pds.argmax()]
-                plt.plot(best, pds.max(), 'ro')
-                plt.axvline(best, color='red', linestyle='--')
         if self.zs_plot_var.get():
+            plt.figure(figsize=(10,6))
+            lines = []
+            for idx, (zs, pds) in enumerate(traces, start=1):
+                line = plt.plot(zs, pds, marker='.', linestyle='-', label=f'Run {idx}')
+                lines.append(line)
+                if runs > 1:
+                    best = zs[np.argmax(pds)]
+                    plt.plot(best, pds.max(), marker='o', color='red', label='_nolegend_')
+                    plt.axvline(best, color='red', linestyle='--', label='_nolegend_')
             plt.xlabel('Z (µm)')
             plt.ylabel('PD meritev')
             title = 'Z-sken' + (f' ({runs} ponovitve)' if runs > 1 else '')
