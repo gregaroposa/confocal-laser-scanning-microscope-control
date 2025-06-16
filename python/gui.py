@@ -46,7 +46,7 @@ class MicroscopeGUI:
         self._build_galvo_scan_tab()
         self._build_3d_scan_tab()
 
-        self.root.protocol('WM_DELETE_WINDOW', self._on_closing)
+        self.root.protocol('WM_DELETE_WINDOW', self.on_closing)
 
     def _make_conv_label(self, parent, row, col, var: tk.StringVar, factor: float, unit: str='\u00b5m') -> tk.Label:
         '''
@@ -82,7 +82,7 @@ class MicroscopeGUI:
         gy_entry.grid(row=1, column=1, padx=5, pady=5, sticky='w')
         self._mk_conv_label(tab, 1, 2, self.gy_var, self.XY_SCALE)
 
-        self.Button(tab, text='Pošlji galvo ukaz', command=self._send_galvo).grid(row=2, column=0, columnspan=3, pady=10)
+        ttk.Button(tab, text='Pošlji galvo ukaz', command=self._send_galvo).grid(row=2, column=0, columnspan=3, pady=10)
 
     def _send_galvo(self) -> None:
         '''Callback: send single-point galvo command and display PD reading (confirmation of movement).'''
@@ -331,7 +331,7 @@ class MicroscopeGUI:
             xp =  abs(int(self.galvo_x_pos.get()))
             yn = -abs(int(self.galvo_y_neg.get()))
             yp =  abs(int(self.galvo_y_pos.get()))
-            loops = int(self.show_loops.get())
+            loops = int(self.galvo_loops.get())
         except ValueError:
             return messagebox.showerror('Invalid', 'Enter valid integers')
         scanner = ShowAreaScanner(self.comms, xn, xp, yn, yp, int(self.galvo_inc.get()), loops)
@@ -374,35 +374,35 @@ class MicroscopeGUI:
 
         tk.Label(tab, text='X negativni offset (raw):').grid(row=0, column=0, padx=5, pady=5, sticky='e')
         self.xn = tk.StringVar('250'); tk.Entry(tab, textvariable=self.xn, width=8).grid(row=0,column=1)
-        self.mk_conv_label(tab,0,2,self.xn,self.XY_SCALE)
+        self._mk_conv_label(tab,0,2,self.xn,self.XY_SCALE)
 
         tk.Label(tab, text='X pozitivni offset (raw):').grid(row=1,column=0,sticky='e',padx=5,pady=5)
         self.xp = tk.StringVar('250'); tk.Entry(tab, textvariable=self.xp, width=8).grid(row=1,column=1)
-        self.mk_conv_label(tab,1,2,self.xp,self.XY_SCALE)
+        self._mk_conv_label(tab,1,2,self.xp,self.XY_SCALE)
 
         tk.Label(tab, text='Y negativni offset (raw):').grid(row=2,column=0,sticky='e',padx=5,pady=5)
         self.yn = tk.StringVar('250'); tk.Entry(tab, textvariable=self.yn, width=8).grid(row=2,column=1)
-        self.mk_conv_label(tab,2,2,self.yn,self.XY_SCALE)
+        self._mk_conv_label(tab,2,2,self.yn,self.XY_SCALE)
 
         tk.Label(tab, text='Y pozitivni offset (raw):').grid(row=3,column=0,sticky='e',padx=5,pady=5)
         self.yp = tk.StringVar('250'); tk.Entry(tab, textvariable=self.yp, width=8).grid(row=3,column=1)
-        self.mk_conv_label(tab,3,2,self.yp,self.XY_SCALE)
+        self._mk_conv_label(tab,3,2,self.yp,self.XY_SCALE)
 
         tk.Label(tab, text='XY korak (raw):').grid(row=4,column=0,sticky='e',padx=5,pady=5)
         self.xy_inc = tk.StringVar('10'); tk.Entry(tab, textvariable=self.xy_inc, width=8).grid(row=4,column=1)
-        self.mk_conv_label(tab,4,2,self.xy_inc,self.XY_SCALE)
+        self._mk_conv_label(tab,4,2,self.xy_inc,self.XY_SCALE)
 
         tk.Label(tab, text='Z negativni offset (raw):').grid(row=5,column=0,sticky='e',padx=5,pady=5)
         self.zn = tk.StringVar('1000'); tk.Entry(tab, textvariable=self.zn, width=8).grid(row=5,column=1)
-        self.mk_conv_label(tab,5,2,self.zn,self.Z_SCALE)
+        self._mk_conv_label(tab,5,2,self.zn,self.Z_SCALE)
 
         tk.Label(tab, text='Z pozitivni offset (raw):').grid(row=6,column=0,sticky='e',padx=5,pady=5)
         self.zp = tk.StringVar('1000'); tk.Entry(tab, textvariable=self.zp, width=8).grid(row=6,column=1)
-        self.mk_conv_label(tab,6,2,self.zp,self.Z_SCALE)
+        self._mk_conv_label(tab,6,2,self.zp,self.Z_SCALE)
 
         tk.Label(tab, text='Z korak (raw):').grid(row=7,column=0,sticky='e',padx=5,pady=5)
         self.z_inc = tk.StringVar('10'); tk.Entry(tab, textvariable=self.z_inc, width=8).grid(row=7,column=1)
-        self.mk_conv_label(tab,7,2,self.z_inc,self.Z_SCALE)
+        self._mk_conv_label(tab,7,2,self.z_inc,self.Z_SCALE)
 
         tk.Label(tab, text='Frekvenca (Hz):').grid(row=8,column=0,sticky='e',padx=5,pady=5)
         self.freq = tk.StringVar(str(24*60)); tk.Entry(tab, textvariable=self.freq, width=8).grid(row=8,column=1)
@@ -423,7 +423,7 @@ class MicroscopeGUI:
             zn = -abs(int(self.zn.get()))
             zp = abs(int(self.zp.get()))
             zi = int(self.z_inc.get())
-            freq = int(self.zf.get())
+            freq = int(self.freq.get())
         except ValueError:
             return messagebox.showerror('Invalid','Enter valid integers')
         x_um, y_um, z_um, vol = ThreeDLayerScanner(self.comms, xn, xp, yn, yp, xy, zn, zp, zi, freq).run()
@@ -449,8 +449,7 @@ class MicroscopeGUI:
 
     def on_closing(self) -> None:
         '''Handle window close event: clean up serial connection.'''
-        if self.comms.is_open:
-            self.comms.close()
+        self.comms.close()
         self.root.destroy()
 
 def main():

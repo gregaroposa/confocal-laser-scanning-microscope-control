@@ -23,9 +23,17 @@ class ThreeDLayerScanner(Scanner):
                  z_inc: int,
                  frequency_hz: int) -> None:
         self.comms = comms
-        self.params = (x_neg, x_pos, y_neg, y_pos.
-                       xy_inc, z_neg, z_pos, z_inc, frequency_hz)
-        
+        self.params = (
+            x_neg,
+            x_pos,
+            y_neg,
+            y_pos,
+            xy_inc,
+            z_neg,
+            z_pos,
+            z_inc,
+            frequency_hz
+        )
     def run(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         pkt = create_3d_layers_packet(*self.params)
         self.comms.write_packet(pkt)

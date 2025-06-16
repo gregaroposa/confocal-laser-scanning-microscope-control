@@ -81,7 +81,7 @@ class ShowAreaScanner(Scanner):
         self.comms = comms
         self.params = (x_neg, x_pos, y_neg, y_pos, increment, loops)
 
-        def run(self) -> bool:
+    def run(self) -> bool:
             pkt = create_show_area_packet(*self.params)
             self.comms.write_packet(pkt)
             resp = self.comms.read_block(2)
