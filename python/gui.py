@@ -279,6 +279,27 @@ class MicroscopeGUI:
         if zs.size == 0 or best is None:
             messagebox.showerror("Napaka", "Ni prejete meritve med Autofokusom.")
             return
+        
+        # Send the stepper move to the best focus position
+        raw_steps = int(abs(best / self.Z_SCALE))
+        direction = 1 if best > 0 else 0
+
+        freq_to_send = (freq // 24) * 24
+        freq_to_send = max(24, min(freq_to_send, 2047 * 24))
+
+        try:
+            pkt = create_stepper_packet(raw_steps, freq_to_send, direction)
+        except ValueError as e:
+            messagebox.showerror("Napaka (stepper)", str(e))
+            return
+        self.comms.write_packet(pkt)
+        fb = self.comms.read_feedback()
+        if fb:
+            messagebox.showinfo('Premik zaključen',
+                                f'Stepper se je premaknil na {best:.2f} µm.'
+                                f'(koraki {raw_steps}), smer: {"DOL" if direction else "GOR"}'
+                                )
+        
         if self.af_plot_var.get():
             plt.figure(figsize=(10,6))
             plt.plot(zs, pd, marker='.', linestyle='-')
