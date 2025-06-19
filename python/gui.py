@@ -602,6 +602,7 @@ class MicroscopeGUI:
             return messagebox.showerror('Napaka', 'Najprej naložite datoteko.')
         only_three = bool(self.layer_three.get())
         visualize_3d_layers(self.proc_path, only_three=only_three)
+        self.log('Prikaz plasti končan.')
 
     def _show_z_profile(self) -> None:
         if getattr(self, 'proc_volume', None) is None:
@@ -616,6 +617,7 @@ class MicroscopeGUI:
         except ValueError:
             return messagebox.showerror('Napaka', 'Vnesite veljaven Z korak.')
         plot_z_profile(self.proc_volume, x, y, raw_increment=inc, z_scale=self.Z_SCALE)
+        self.log('Prikaz Z profila končan.')
 
     def _show_cross_section(self) -> None:
         if getattr(self, 'proc_volume', None) is None:
@@ -637,6 +639,7 @@ class MicroscopeGUI:
             z_scale=self.Z_SCALE,
             xy_scale=self.XY_SCALE,
         )
+        self.log(f'Prikaz preseka po {axis.upper()} osi končan.')
 
     def _show_topography(self) -> None:
         if not getattr(self, 'proc_path', ''):
@@ -646,6 +649,7 @@ class MicroscopeGUI:
         except ValueError:
             return messagebox.showerror('Napaka', 'Vnesite veljaven Z korak.')
         plot_3d_topography(self.proc_path, self.XY_SCALE, self.Z_SCALE, raw_increment=inc)
+        self.log('Prikaz 3D topografije končan.')
 
     def on_closing(self) -> None:
         '''Handle window close event: clean up serial connection.'''

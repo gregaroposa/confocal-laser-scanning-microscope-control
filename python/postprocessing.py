@@ -22,6 +22,7 @@ def visualize_3d_layers(path, cmap='viridis', only_three=False, vmin=None, vmax=
     Raises:
         ValueError: If the loaded volume is not 3D or if vmin >= vmax.
     '''
+    
     # Load the volume
     if path.endswith('.npz'):
         data = np.load(path)
@@ -65,6 +66,13 @@ def visualize_3d_layers(path, cmap='viridis', only_three=False, vmin=None, vmax=
         plt.ylabel('Galvo Y indeks (0..ny-1)')
         plt.title(f'3D meritev - plast Z = {iz+1}/{nz}')
         plt.tight_layout()
+        if only_three:
+            plt.show(block=False)
+        else:
+            plt.show()
+
+    if only_three:
+        # Display all prepared figures at once
         plt.show()
 
 def plot_z_profile(volume, x_idx, y_idx, raw_increment=10, z_scale=0.5):
@@ -208,8 +216,8 @@ def plot_3d_topography(path, xy_scale, z_scale, raw_increment=10):
     # Assemble the figure
     fig = go.Figure(data=[surf])
     fig.update_layout(
-        f'3D topografija merjene površine - {filename}',
-        width = 1000, height=800,
+        title=f'3D topografija merjene površine - {filename}',
+        width=1000, height=800,
         scene = dict(
             xaxis_title="X (µm)",
             yaxis_title="Y (µm)",
