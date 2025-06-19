@@ -11,6 +11,12 @@ from packets import create_stepper_packet
 from scanners.zscan import ZScanScanner, AutofocusScanner
 from scanners.galvo import GalvoPointScanner, GalvoRasterScanner, ShowAreaScanner
 from scanners.three_d import ThreeDLayerScanner
+from postprocessing import (
+    visualize_3d_layers,
+    plot_z_profile,
+    plot_cross_section,
+    plot_3d_topography
+)
 
 class MicroscopeGUI:
     '''
@@ -55,6 +61,7 @@ class MicroscopeGUI:
         self._build_autofocus_tab()
         self._build_galvo_scan_tab()
         self._build_3d_scan_tab()
+        self._build_obdelava_tab()
 
         self.root.protocol('WM_DELETE_WINDOW', self.on_closing)
         self.log('GUI inicializiran.')
@@ -513,6 +520,132 @@ class MicroscopeGUI:
             self.log(f'3D skeniranje zaključeno. Shranjeno v {fname}')
         except Exception as e:
             self.log(f'Napaka pri shranjevanju 3D skena: {e}')
+
+    def _build_obdelava_tab(self) -> None:
+        '''Tab for post-processing and visualization of scans.'''
+        tab = tk.Frame(self.notebook)
+        self.notebook.add(tab, text='Obdelava')
+        
+        # File selection and global settings
+        ttk.Button(tab, text='Naloži .npz/.npy datoteko', command=self._load_proc_volume).grid(
+            row=0, column=0, padx=5, pady=5, sticky='w'
+        )
+        self.proc_path_var = tk.StringVar(value='')
+        tk.Label(tab, textvariable=self.proc_path_var, wraplength=250).grid(
+            row=0, column=1, columnspan=2, sticky='w', padx=5
+        )
+
+        tk.Label(tab, text='Z korak (raw):').grid(row=1, column=0, sticky='e')
+        self.proc_inc = tk.StringVar(value='10')
+        tk.Entry(tab, textvariable=self.proc_inc, width=8).grid(
+            row=1, column=1, padx=5, sticky='w'
+        )
+
+        # 2D layer visualization
+        self.layer_three = tk.IntVar(value=0)
+        ttk.Checkbutton(tab, text='Samo tri plasti', variable=self.layer_three).grid(
+            row=2, column=0, sticky='w', padx=5
+        )
+        ttk.Button(tab, text='Prikaži plasti', command=self._show_layers).grid(
+            row=2, column=1, columnspan=2, pady=5
+        )
+
+        # Z profile
+        tk.Label(tab, text='X indeks:').grid(row=3, column=0, sticky='e')
+        self.zprof_x = tk.StringVar(value='0')
+        tk.Entry(tab, textvariable=self.zprof_x, width=6).grid(row=3, column=1, sticky='w')
+        tk.Label(tab, text='Y indeks:').grid(row=4, column=0, sticky='e')
+        self.zprof_y = tk.StringVar(value='0')
+        tk.Entry(tab, textvariable=self.zprof_y, width=6).grid(row=4, column=1, sticky='w')
+        ttk.Button(tab, text='Z profil', command=self._show_z_profile).grid(
+            row=4, column=2, padx=5, pady=5
+        )
+
+        # Cross section
+        tk.Label(tab, text='Prerez indeks:').grid(row=5, column=0, sticky='e')
+        self.cross_idx = tk.StringVar(value='0')
+        tk.Entry(tab, textvariable=self.cross_idx, width=6).grid(row=5, column=1, sticky='w')
+        self.cross_axis = tk.StringVar(value='y')
+        tk.Radiobutton(tab, text='XZ', variable=self.cross_axis, value='y').grid(row=5, column=2, sticky='w')
+        tk.Radiobutton(tab, text='YZ', variable=self.cross_axis, value='x').grid(row=6, column=2, sticky='w')
+        ttk.Button(tab, text='Prikaži prerez', command=self._show_cross_section).grid(
+            row=6, column=0, columnspan=2, pady=5
+        )
+
+        # 3D topography
+        ttk.Button(tab, text='3D topografija', command=self._show_topography).grid(
+            row=7, column=0, columnspan=3, pady=5
+        )
+
+    def _load_proc_volume(self) -> None:
+        '''Load a saved volume from disk.'''
+        path = filedialog.askopenfilename(
+            filetypes=[('NumPy files', '*.npz *.npy')]
+        )
+        if not path:
+            return
+        try:
+            if path.endswith('.npz'):
+                data = np.load(path)
+                self.proc_volume = data['pd_volume']
+            else:
+                self.proc_volume = np.load(path)
+        except Exception as e:
+            messagebox.showerror('Napaka', f'Napaka pri branju datoteke: {e}')
+            return
+        self.proc_path = path
+        self.proc_path_var.set(path)
+        self.log(f'Naložen volumen {path}')
+
+    def _show_layers(self) -> None:
+        if not getattr(self, 'proc_path', ''):
+            return messagebox.showerror('Napaka', 'Najprej naložite datoteko.')
+        only_three = bool(self.layer_three.get())
+        visualize_3d_layers(self.proc_path, only_three=only_three)
+
+    def _show_z_profile(self) -> None:
+        if getattr(self, 'proc_volume', None) is None:
+            return messagebox.showerror('Napaka', 'Najprej naložite datoteko.')
+        try:
+            x = int(self.zprof_x.get())
+            y = int(self.zprof_y.get())
+        except ValueError:
+            return messagebox.showerror('Napaka', 'Vnesite veljavna indeksa.')
+        try:
+            inc = int(self.proc_inc.get())
+        except ValueError:
+            return messagebox.showerror('Napaka', 'Vnesite veljaven Z korak.')
+        plot_z_profile(self.proc_volume, x, y, raw_increment=inc, z_scale=self.Z_SCALE)
+
+    def _show_cross_section(self) -> None:
+        if getattr(self, 'proc_volume', None) is None:
+            return messagebox.showerror('Napaka', 'Najprej naložite datoteko.')
+        try:
+            idx = int(self.cross_idx.get())
+        except ValueError:
+            return messagebox.showerror('Napaka', 'Vnesite veljaven indeks.')
+        axis = self.cross_axis.get()
+        try:
+            inc = int(self.proc_inc.get())
+        except ValueError:
+            return messagebox.showerror('Napaka', 'Vnesite veljaven Z korak.')
+        plot_cross_section(
+            self.proc_volume,
+            idx,
+            axis=axis,
+            raw_increment=inc,
+            z_scale=self.Z_SCALE,
+            xy_scale=self.XY_SCALE,
+        )
+
+    def _show_topography(self) -> None:
+        if not getattr(self, 'proc_path', ''):
+            return messagebox.showerror('Napaka', 'Najprej naložite datoteko.')
+        try:
+            inc = int(self.proc_inc.get())
+        except ValueError:
+            return messagebox.showerror('Napaka', 'Vnesite veljaven Z korak.')
+        plot_3d_topography(self.proc_path, self.XY_SCALE, self.Z_SCALE, raw_increment=inc)
 
     def on_closing(self) -> None:
         '''Handle window close event: clean up serial connection.'''
