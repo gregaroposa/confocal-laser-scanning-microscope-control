@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.io as pio
 
-def visualize_3d_layers(path, cmap='virdis', only_three=False, vmin=None, vmax=None):
+def visualize_3d_layers(path, cmap='viridis', only_three=False, vmin=None, vmax=None):
     '''
     Load a 3D photodiode volume from ``path`` and visualize each Z-layer as a 2D image.
 
@@ -93,50 +93,53 @@ def plot_z_profile(volume, x_idx, y_idx, raw_increment=10, z_scale=0.5):
     plt.tight_layout()
     plt.show()
 
-    def plot_cross_section(volume, index, axis='y', raw_increment=10, z_scale=0.5, xy_scale=1.2269):
-        '''
-        Display an XZ or YZ cross-section through the 3D photodiode volume.
+def plot_cross_section(volume, index, axis='y', raw_increment=10, z_scale=0.5, xy_scale=1.2269):
+    '''
+    Display an XZ or YZ cross-section through the 3D photodiode volume.
 
-        Args:
-            volume (np.ndarray): 3D photodiode volume.
-            index (int): Index along the specified axis to plot.
-            axis (str): Axis to plot ('x' for XZ, 'y' for YZ).
-            raw_increment (int): Raw steps between successive Z-layers.
-            z_scale (float): Scale factor for Z-axis. Default is 0.5.
-            xy_scale (float): Scale factor for XY axes. Default is 1.2269.
+    Args:
+        volume (np.ndarray): 3D photodiode volume.
+        index (int): Index along the specified axis to plot.
+        axis (str): Axis to plot ('x' for XZ, 'y' for YZ).
+        raw_increment (int): Raw steps between successive Z-layers.
+        z_scale (float): Scale factor for Z-axis. Default is 0.5.
+        xy_scale (float): Scale factor for XY axes. Default is 1.2269.
 
-        Returns:
-            None: Displays the cross-section plot.        
-        '''
-        z_max_idx = np.argmax(volume, axis=2)
-        nz = volume.shape[2]
-        center_idx = nz // 2
-        z = (z_max_idx - center_idx) * raw_increment * z_scale
+    Returns:
+        None: Displays the cross-section plot.        
+    '''
+    z_max_idx = np.argmax(volume, axis=2)
+    nz = volume.shape[2]
+    center_idx = nz // 2
+    z = (z_max_idx - center_idx) * raw_increment * z_scale
 
-        if axis == 'y':
-            nx = z.shape[0]
-            x = np.arange(nx) * xy_scale
-            # Extraxt the XZ slice at specified Y index
-            z_slice = z[:, index]
-            title = f'X-Z profil pri Y = {index}'
-        else:
-            nx = z.shape[1]
-            x = np.arange(nx) * xy_scale
-            # Extract the YZ slice at specified X index
-            z_slice = z[index, :]
-            title=f'Y-Z profil pri X = {index}'
-        
-        plt.figure(figsize=(8, 4))
-        plt.plot(x, z_slice, marker='.', linestyle='-')
-        plt.xlabel("X (µm)")
-        plt.ylabel("Z (µm)")
-        plt.title(title)
-        plt.grid(True)
-        plt.show()
+    if axis == 'y':
+        nx = z.shape[0]
+        x = np.arange(nx) * xy_scale
+        # Extraxt the XZ slice at specified Y index
+        z_slice = z[:, index]
+        title = f'X-Z profil pri Y = {index}'
+    else:
+        nx = z.shape[1]
+        x = np.arange(nx) * xy_scale
+        # Extract the YZ slice at specified X index
+        z_slice = z[index, :]
+        title=f'Y-Z profil pri X = {index}'
+    
+    plt.figure(figsize=(8, 4))
+    plt.plot(x, z_slice, marker='.', linestyle='-')
+    plt.xlabel("X (µm)")
+    plt.ylabel("Z (µm)")
+    plt.title(title)
+    plt.grid(True)
+    plt.show()
 
 def plot_3d_topography(path, xy_scale, z_scale, raw_increment=10):
     '''
     Plot a 3D topography of the photodiode volume.
+
+    The file may be a ``.npy`` array or a ``.npz`` archive containing a
+    ``pd_volume`` entry.
 
     Args:
         path (str): Path to the file containing the 3D photodiode volume.
@@ -148,7 +151,11 @@ def plot_3d_topography(path, xy_scale, z_scale, raw_increment=10):
     pio.renderers.default = 'browser'
 
     # Load the 3D volume
-    volume = np.load(path)
+    if path.endswith('.npz'):
+        data = np.load(path)
+        volume = data['pd_volume']
+    else:
+        volume = np.load(path)
     # Extract filename (without extension) for title
     filename = path.split('/')[-1].split('.')[0]
 
