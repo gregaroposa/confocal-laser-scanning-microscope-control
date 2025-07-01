@@ -68,6 +68,15 @@ class MicroscopeGUI:
 
     def log(self, msg:str) -> None:
         '''Append a timestamped message to the log window.'''
+        # If the log window was closed, skip logging to avoid Tkinter errors
+        if not getattr(self, 'log_text', None):
+            return
+        try:
+            if not self.log_text.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        
         ts = time.strftime('%H:%M:%S')
         self.log_text.configure(state='normal')
         self.log_text.insert('end', f'[{ts}] {msg}\n')
@@ -210,7 +219,19 @@ class MicroscopeGUI:
             row=4, column=3, padx=5, pady=5, sticky='e'
         )
 
-        ttk.Button(tab, text='Zaženi Z-sken', command=self._run_zscan).grid(row=5, column=0, columnspan=3, pady=10)
+        # Save option
+        self.save_zscan = tk.IntVar(value=0)
+        ttk.Checkbutton(tab, text='Shrani sken', variable=self.save_zscan).grid(
+            row=5, column=0, padx=5, pady=5, sticky='w'
+        )
+        self.zscan_fname = tk.StringVar(value='zscan')
+        tk.Entry(tab, textvariable=self.zscan_fname, width=20).grid(
+            row=5, column=1, padx=5, pady=5, sticky='w'
+        )
+
+        ttk.Button(tab, text='Zaženi Z-skeniranje', command=self._run_zscan).grid(
+            row=6, column=0, columnspan=4, pady=10
+        )
 
     def _run_zscan(self) -> None:
         '''Callback: execute z_scan (single or multi-run) and plot results.'''
@@ -242,6 +263,20 @@ class MicroscopeGUI:
                 messagebox.showerror("Napaka", "Ni prejete meritve med Z-sken.")
                 return
             traces.append((zs, pds))
+
+        # Optionally save the raw traces
+        if self.save_zscan.get():
+            fname = self.zscan_fname.get()
+            if not fname.endswith('.npz'):
+                fname += '.npz'
+            np.savez(
+                fname,
+                zs_runs=[t[0] for t in traces],
+                pds_runs=[t[1] for t in traces],
+            )
+            saved_fname = fname
+        else:
+            saved_fname = None
         
         if self.zs_plot_var.get():
             plt.figure(figsize=(10,6))
@@ -262,7 +297,11 @@ class MicroscopeGUI:
                 plt.legend([f'Run {i}' for i in range(1, runs+1)], bbox_to_anchor=(1,1), loc='upper left')
             plt.tight_layout()
             plt.show()
-            self.log(f'Z-skeniranje zaključeno.')
+
+        if saved_fname:
+            self.log(f'Z-skeniranje shranjeno v {saved_fname}')
+        else:
+            self.log('Z-skeniranje zaključeno.')
 
     def _build_autofocus_tab(self) -> None:
         '''Tab for autofocus Z-scam'''

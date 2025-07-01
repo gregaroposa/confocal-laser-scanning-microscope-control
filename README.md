@@ -34,3 +34,5 @@ Upload the sketch to an Arduino (tested with the R4 Minima) using the Arduino ID
 3. Connect the Arduino and run `python -m python.main -p COM4` (replace `COM4` with your serial port).
 
 The GUI allows interactive control of the microscope and saving of scan results in NumPy `.npz` format.
+Z‑scan measurements include a checkbox to save the acquired traces. When enabled, enter a file name and the scan (single or multiple runs) will be stored
+in the specified `.npz` archive.
